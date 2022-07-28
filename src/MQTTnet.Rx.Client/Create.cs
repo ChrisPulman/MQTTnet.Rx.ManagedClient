@@ -3,6 +3,7 @@
 
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
 using MQTTnet.Protocol;
@@ -15,13 +16,21 @@ namespace MQTTnet.Rx.Client
     public static class Create
     {
         /// <summary>
+        /// Gets the MQTT factory.
+        /// </summary>
+        /// <value>
+        /// The MQTT factory.
+        /// </value>
+        public static MqttFactory MqttFactory { get; } = new();
+
+        /// <summary>
         /// Created a mqtt Client.
         /// </summary>
         /// <returns>An IMqttClient.</returns>
         public static IObservable<IMqttClient> MqttClient() =>
             Observable.Create<IMqttClient>(observer =>
                 {
-                    var mqttClient = new MqttFactory().CreateMqttClient();
+                    var mqttClient = MqttFactory.CreateMqttClient();
                     observer.OnNext(mqttClient);
                     return Disposable.Create(() => mqttClient.Dispose());
                 }).Retry();
@@ -33,7 +42,7 @@ namespace MQTTnet.Rx.Client
         public static IObservable<IManagedMqttClient> ManagedMqttClient() =>
             Observable.Create<IManagedMqttClient>(observer =>
                 {
-                    var mqttClient = new MqttFactory().CreateManagedMqttClient();
+                    var mqttClient = MqttFactory.CreateManagedMqttClient();
                     observer.OnNext(mqttClient);
                     return Disposable.Create(() => mqttClient.Dispose());
                 }).Retry();
@@ -47,13 +56,11 @@ namespace MQTTnet.Rx.Client
         public static IObservable<IMqttClient> WithClientOptions(this IObservable<IMqttClient> client, Action<MqttClientOptionsBuilder> optionsBuilder) =>
             Observable.Create<IMqttClient>(observer =>
             {
-                var mqttClientOptions = new MqttClientOptionsBuilder();
+                var mqttClientOptions = MqttFactory.CreateClientOptionsBuilder();
                 optionsBuilder(mqttClientOptions);
-                return client.Subscribe(async c =>
-                {
-                    await c.ConnectAsync(mqttClientOptions.Build(), CancellationToken.None);
-                    observer.OnNext(c);
-                });
+                var disposable = new CompositeDisposable();
+                disposable.Add(client.Subscribe(c => disposable.Add(Observable.StartAsync(async token => await c.ConnectAsync(mqttClientOptions.Build(), token)).Subscribe(_ => observer.OnNext(c)))));
+                return disposable;
             });
 
         /// <summary>
@@ -65,13 +72,11 @@ namespace MQTTnet.Rx.Client
         public static IObservable<IManagedMqttClient> WithManagedClientOptions(this IObservable<IManagedMqttClient> client, Action<ManagedMqttClientOptionsBuilder> optionsBuilder) =>
             Observable.Create<IManagedMqttClient>(observer =>
             {
-                var mqttClientOptions = new ManagedMqttClientOptionsBuilder();
+                var mqttClientOptions = MqttFactory.CreateManagedClientOptionsBuilder();
                 optionsBuilder(mqttClientOptions);
-                return client.Subscribe(async c =>
-                {
-                    await c.StartAsync(mqttClientOptions.Build());
-                    observer.OnNext(c);
-                });
+                var disposable = new CompositeDisposable();
+                disposable.Add(client.Subscribe(c => disposable.Add(Observable.StartAsync(async () => await c.StartAsync(mqttClientOptions.Build())).Subscribe(_ => observer.OnNext(c)))));
+                return disposable;
             });
 
         /// <summary>
@@ -97,11 +102,89 @@ namespace MQTTnet.Rx.Client
                 throw new ArgumentNullException(nameof(clientBuilder));
             }
 
-            var optionsBuilder = new MqttClientOptionsBuilder();
+            var optionsBuilder = MqttFactory.CreateClientOptionsBuilder();
             clientBuilder(optionsBuilder);
             builder.WithClientOptions(optionsBuilder);
             return builder;
         }
+
+        /// <summary>
+        /// Subscribes to topic.
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <param name="topic">The topic.</param>
+        /// <returns>An Observable Mqtt Client Subscribe Result.</returns>
+        public static IObservable<MqttApplicationMessageReceivedEventArgs> SubscribeToTopic(this IObservable<IMqttClient> client, string topic) =>
+            Observable.Create<MqttApplicationMessageReceivedEventArgs>(observer =>
+            {
+                var disposable = new CompositeDisposable();
+                IMqttClient? mqttClient = null;
+                disposable.Add(client.Subscribe(async c =>
+                {
+                    mqttClient = c;
+                    disposable.Add(mqttClient.ApplicationMessageReceived().Subscribe(observer));
+                    var mqttSubscribeOptions = MqttFactory.CreateSubscribeOptionsBuilder()
+                        .WithTopicFilter(f => f.WithTopic(topic))
+                        .Build();
+
+                    await mqttClient.SubscribeAsync(mqttSubscribeOptions, CancellationToken.None);
+                }));
+
+                return Disposable.Create(async () =>
+                    {
+                        try
+                        {
+                            await mqttClient!.UnsubscribeAsync(topic).ConfigureAwait(false);
+                            disposable.Dispose();
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                        }
+                        catch (Exception exception)
+                        {
+                            observer.OnError(exception);
+                        }
+                    });
+            }).Retry();
+
+        /// <summary>
+        /// Subscribes to topic.
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <param name="topic">The topic.</param>
+        /// <returns>An Observable Mqtt Client Subscribe Result.</returns>
+        public static IObservable<MqttApplicationMessageReceivedEventArgs> SubscribeToTopic(this IObservable<IManagedMqttClient> client, string topic) =>
+            Observable.Create<MqttApplicationMessageReceivedEventArgs>(observer =>
+            {
+                var disposable = new CompositeDisposable();
+                IManagedMqttClient? mqttClient = null;
+                disposable.Add(client.Subscribe(async c =>
+                {
+                    mqttClient = c;
+                    disposable.Add(mqttClient.ApplicationMessageReceived().Subscribe(observer));
+                    var mqttSubscribeOptions = MqttFactory.CreateTopicFilterBuilder()
+                        .WithTopic(topic)
+                        .Build();
+
+                    await mqttClient.SubscribeAsync(new[] { mqttSubscribeOptions });
+                }));
+
+                return Disposable.Create(async () =>
+                    {
+                        try
+                        {
+                            await mqttClient!.UnsubscribeAsync(new[] { topic }).ConfigureAwait(false);
+                            disposable.Dispose();
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                        }
+                        catch (Exception exception)
+                        {
+                            observer.OnError(exception);
+                        }
+                    });
+            }).Retry().Publish().RefCount();
 
         /// <summary>
         /// Publishes the message.
@@ -117,7 +200,7 @@ namespace MQTTnet.Rx.Client
             Observable.Create<MqttClientPublishResult>(observer =>
                 client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
                 {
-                    var applicationMessage = new MqttApplicationMessageBuilder()
+                    var applicationMessage = MqttFactory.CreateApplicationMessageBuilder()
                                     .WithTopic(c.mess.topic)
                                     .WithPayload(c.mess.payLoad)
                                     .WithQualityOfServiceLevel(qos)
@@ -149,7 +232,7 @@ namespace MQTTnet.Rx.Client
                         disposable.Add(c.cli.ApplicationMessageProcessed().Retry().Subscribe(args => observer.OnNext(args)));
                     }
 
-                    var applicationMessage = new MqttApplicationMessageBuilder()
+                    var applicationMessage = MqttFactory.CreateApplicationMessageBuilder()
                                     .WithTopic(c.mess.topic)
                                     .WithPayload(c.mess.payLoad)
                                     .WithQualityOfServiceLevel(qos)
@@ -183,7 +266,7 @@ namespace MQTTnet.Rx.Client
                         disposable.Add(c.cli.ApplicationMessageProcessed().Retry().Subscribe(args => observer.OnNext(args)));
                     }
 
-                    var applicationMessage = new MqttApplicationMessageBuilder()
+                    var applicationMessage = MqttFactory.CreateApplicationMessageBuilder()
                                     .WithTopic(c.mess.topic)
                                     .WithPayload(c.mess.payLoad)
                                     .WithQualityOfServiceLevel(qos)
@@ -209,7 +292,7 @@ namespace MQTTnet.Rx.Client
             Observable.Create<MqttClientPublishResult>(observer =>
                 client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
                 {
-                    var applicationMessage = new MqttApplicationMessageBuilder()
+                    var applicationMessage = MqttFactory.CreateApplicationMessageBuilder()
                                     .WithTopic(c.mess.topic)
                                     .WithPayload(c.mess.payLoad)
                                     .WithQualityOfServiceLevel(qos)
@@ -232,7 +315,7 @@ namespace MQTTnet.Rx.Client
             Observable.Create<MqttClientPublishResult>(observer =>
                 client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
                 {
-                    var applicationMessage = new MqttApplicationMessageBuilder()
+                    var applicationMessage = MqttFactory.CreateApplicationMessageBuilder()
                                     .WithTopic(c.mess.topic)
                                     .WithPayload(c.mess.payLoad)
                                     .WithQualityOfServiceLevel(qos)
@@ -256,7 +339,7 @@ namespace MQTTnet.Rx.Client
             Observable.Create<MqttClientPublishResult>(observer =>
                 client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
                 {
-                    var applicationMessage = new MqttApplicationMessageBuilder()
+                    var applicationMessage = MqttFactory.CreateApplicationMessageBuilder()
                                     .WithTopic(c.mess.topic)
                                     .WithPayload(c.mess.payLoad)
                                     .WithQualityOfServiceLevel(qos)
@@ -266,6 +349,13 @@ namespace MQTTnet.Rx.Client
                     var result = await c.cli.PublishAsync(applicationMessage.Build(), CancellationToken.None);
                     observer.OnNext(result);
                 })).Retry();
+
+        /// <summary>
+        /// Creates the client options builder.
+        /// </summary>
+        /// <param name="factory">The MqttFactory.</param>
+        /// <returns>A Managed Mqtt Client Options Builder.</returns>
+        public static ManagedMqttClientOptionsBuilder CreateManagedClientOptionsBuilder(this MqttFactory factory) => new();
 
         /// <summary>
         /// Applications the message processed.
@@ -326,6 +416,26 @@ namespace MQTTnet.Rx.Client
             FromAsyncEvent<ApplicationMessageSkippedEventArgs>(
                 handler => client.ApplicationMessageSkippedAsync += handler,
                 handler => client.ApplicationMessageSkippedAsync -= handler);
+
+        /// <summary>
+        /// Applications the message received.
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <returns>A Mqtt Application Message Received Event Args.</returns>
+        public static IObservable<MqttApplicationMessageReceivedEventArgs> ApplicationMessageReceived(this IManagedMqttClient client) =>
+            FromAsyncEvent<MqttApplicationMessageReceivedEventArgs>(
+                handler => client.ApplicationMessageReceivedAsync += handler,
+                handler => client.ApplicationMessageReceivedAsync -= handler);
+
+        /// <summary>
+        /// Applications the message received.
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <returns>A Mqtt Application Message Received Event Args.</returns>
+        public static IObservable<MqttApplicationMessageReceivedEventArgs> ApplicationMessageReceived(this IMqttClient client) =>
+            FromAsyncEvent<MqttApplicationMessageReceivedEventArgs>(
+                handler => client.ApplicationMessageReceivedAsync += handler,
+                handler => client.ApplicationMessageReceivedAsync -= handler);
 
         internal static IObservable<T> FromAsyncEvent<T>(Action<Func<T, Task>> addHandler, Action<Func<T, Task>> removeHandler) =>
             Observable.Create<T>(observer =>
