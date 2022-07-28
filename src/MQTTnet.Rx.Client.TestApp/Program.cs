@@ -1,11 +1,8 @@
 ﻿// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using MQTTnet.Client;
-using MQTTnet.Rx.ManagedClient;
 
 namespace MQTTnet.Rx.Client.TestApp
 {
@@ -29,13 +26,14 @@ namespace MQTTnet.Rx.Client.TestApp
                 Create.ManagedMqttClient()
                 .WithManagedClientOptions(a =>
                     a.WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
-                        .WithClientOptions(new MqttClientOptionsBuilder()
-                        .WithTcpServer("localhost", 9000))).PublishMessage(message)
-                .Subscribe(r => Console.WriteLine($"{r.ApplicationMessage.Id} [{r.ApplicationMessage.ApplicationMessage.Topic}]"));
+                        .WithClientOptions(c =>
+                            c.WithTcpServer("localhost", 9000)))
+                .PublishMessage(message)
+                .Subscribe(r => Console.WriteLine($"{r.ApplicationMessage.Id} [{r.ApplicationMessage.ApplicationMessage.Topic}] value : {r.ApplicationMessage.ApplicationMessage.ConvertPayloadToString()}"));
             }
 
             Observable.Interval(TimeSpan.FromMilliseconds(10))
-                    .Subscribe(i => message.OnNext(("samples/temperature/living_room", $"payload {i}")));
+                    .Subscribe(i => message.OnNext(("FromMilliseconds", $"payload {i}")));
             Console.ReadLine();
         }
     }

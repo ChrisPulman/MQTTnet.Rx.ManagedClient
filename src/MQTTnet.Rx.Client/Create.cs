@@ -7,7 +7,7 @@ using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
 using MQTTnet.Protocol;
 
-namespace MQTTnet.Rx.ManagedClient
+namespace MQTTnet.Rx.Client
 {
     /// <summary>
     /// Create.
@@ -75,6 +75,35 @@ namespace MQTTnet.Rx.ManagedClient
             });
 
         /// <summary>
+        /// Withes the client options.
+        /// </summary>
+        /// <param name="builder">The builder.</param>
+        /// <param name="clientBuilder">The client builder.</param>
+        /// <returns>A ManagedMqttClientOptionsBuilder.</returns>
+        /// <exception cref="System.ArgumentNullException">
+        /// builder
+        /// or
+        /// clientBuilder.
+        /// </exception>
+        public static ManagedMqttClientOptionsBuilder WithClientOptions(this ManagedMqttClientOptionsBuilder builder, Action<MqttClientOptionsBuilder> clientBuilder)
+        {
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            if (clientBuilder == null)
+            {
+                throw new ArgumentNullException(nameof(clientBuilder));
+            }
+
+            var optionsBuilder = new MqttClientOptionsBuilder();
+            clientBuilder(optionsBuilder);
+            builder.WithClientOptions(optionsBuilder);
+            return builder;
+        }
+
+        /// <summary>
         /// Publishes the message.
         /// </summary>
         /// <param name="client">The client.</param>
@@ -86,8 +115,7 @@ namespace MQTTnet.Rx.ManagedClient
         /// </returns>
         public static IObservable<MqttClientPublishResult> PublishMessage(this IObservable<IMqttClient> client, IObservable<(string topic, string payLoad)> message, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.ExactlyOnce, bool retain = true) =>
             Observable.Create<MqttClientPublishResult>(observer =>
-            {
-                return client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
+                client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
                 {
                     var applicationMessage = new MqttApplicationMessageBuilder()
                                     .WithTopic(c.mess.topic)
@@ -98,8 +126,7 @@ namespace MQTTnet.Rx.ManagedClient
 
                     var result = await c.cli.PublishAsync(applicationMessage, CancellationToken.None);
                     observer.OnNext(result);
-                });
-            }).Retry();
+                })).Retry();
 
         /// <summary>
         /// Publishes the message.
@@ -140,14 +167,47 @@ namespace MQTTnet.Rx.ManagedClient
         /// </summary>
         /// <param name="client">The client.</param>
         /// <param name="message">The message.</param>
+        /// <param name="qos">The qos.</param>
+        /// <param name="retain">if set to <c>true</c> [retain].</param>
+        /// <returns>A Mqtt Client Publish Result.</returns>
+        public static IObservable<ApplicationMessageProcessedEventArgs> PublishMessage(this IObservable<IManagedMqttClient> client, IObservable<(string topic, byte[] payLoad)> message, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.ExactlyOnce, bool retain = true) =>
+            Observable.Create<ApplicationMessageProcessedEventArgs>(observer =>
+            {
+                var disposable = new CompositeDisposable();
+                var setup = false;
+                disposable.Add(client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
+                {
+                    if (!setup)
+                    {
+                        setup = true;
+                        disposable.Add(c.cli.ApplicationMessageProcessed().Retry().Subscribe(args => observer.OnNext(args)));
+                    }
+
+                    var applicationMessage = new MqttApplicationMessageBuilder()
+                                    .WithTopic(c.mess.topic)
+                                    .WithPayload(c.mess.payLoad)
+                                    .WithQualityOfServiceLevel(qos)
+                                    .WithRetainFlag(retain)
+                                    .Build();
+
+                    await c.cli.EnqueueAsync(applicationMessage);
+                }));
+
+                return disposable;
+            }).Retry();
+
+        /// <summary>
+        /// Publishes the message.
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <param name="message">The message.</param>
         /// <param name="messageBuilder">The message builder.</param>
         /// <param name="qos">The qos.</param>
         /// <param name="retain">if set to <c>true</c> [retain].</param>
         /// <returns>A Mqtt Client Publish Result.</returns>
         public static IObservable<MqttClientPublishResult> PublishMessage(this IObservable<IMqttClient> client, IObservable<(string topic, string payLoad)> message, Action<MqttApplicationMessageBuilder> messageBuilder, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.ExactlyOnce, bool retain = true) =>
             Observable.Create<MqttClientPublishResult>(observer =>
-            {
-                return client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
+                client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
                 {
                     var applicationMessage = new MqttApplicationMessageBuilder()
                                     .WithTopic(c.mess.topic)
@@ -158,8 +218,7 @@ namespace MQTTnet.Rx.ManagedClient
 
                     var result = await c.cli.PublishAsync(applicationMessage.Build(), CancellationToken.None);
                     observer.OnNext(result);
-                });
-            }).Retry();
+                })).Retry();
 
         /// <summary>
         /// Publishes the message.
@@ -171,8 +230,7 @@ namespace MQTTnet.Rx.ManagedClient
         /// <returns>A Mqtt Client Publish Result.</returns>
         public static IObservable<MqttClientPublishResult> PublishMessage(this IObservable<IMqttClient> client, IObservable<(string topic, byte[] payLoad)> message, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.ExactlyOnce, bool retain = true) =>
             Observable.Create<MqttClientPublishResult>(observer =>
-            {
-                return client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
+                client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
                 {
                     var applicationMessage = new MqttApplicationMessageBuilder()
                                     .WithTopic(c.mess.topic)
@@ -183,8 +241,7 @@ namespace MQTTnet.Rx.ManagedClient
 
                     var result = await c.cli.PublishAsync(applicationMessage, CancellationToken.None);
                     observer.OnNext(result);
-                });
-            }).Retry();
+                })).Retry();
 
         /// <summary>
         /// Publishes the message.
@@ -197,8 +254,7 @@ namespace MQTTnet.Rx.ManagedClient
         /// <returns>A Mqtt Client Publish Result.</returns>
         public static IObservable<MqttClientPublishResult> PublishMessage(this IObservable<IMqttClient> client, IObservable<(string topic, byte[] payLoad)> message, Action<MqttApplicationMessageBuilder> messageBuilder, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.ExactlyOnce, bool retain = true) =>
             Observable.Create<MqttClientPublishResult>(observer =>
-            {
-                return client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
+                client.CombineLatest(message, (cli, mess) => (cli, mess)).Subscribe(async c =>
                 {
                     var applicationMessage = new MqttApplicationMessageBuilder()
                                     .WithTopic(c.mess.topic)
@@ -209,20 +265,70 @@ namespace MQTTnet.Rx.ManagedClient
 
                     var result = await c.cli.PublishAsync(applicationMessage.Build(), CancellationToken.None);
                     observer.OnNext(result);
-                });
-            }).Retry();
+                })).Retry();
 
         /// <summary>
-        /// Froms the asynchronous event.
+        /// Applications the message processed.
         /// </summary>
-        /// <typeparam name="T">The type.</typeparam>
-        /// <param name="addHandler">The add handler.</param>
-        /// <param name="removeHandler">The remove handler.</param>
-        /// <returns>Observable event.</returns>
-        public static IObservable<T> FromAsyncEvent<T>(Action<Func<T, Task>> addHandler, Action<Func<T, Task>> removeHandler)
-        {
-            return Observable
-                .Create<T>(observer =>
+        /// <param name="client">The client.</param>
+        /// <returns>A Application Message Processed Event Args.</returns>
+        public static IObservable<ApplicationMessageProcessedEventArgs> ApplicationMessageProcessed(this IManagedMqttClient client) =>
+            FromAsyncEvent<ApplicationMessageProcessedEventArgs>(
+                handler => client.ApplicationMessageProcessedAsync += handler,
+                handler => client.ApplicationMessageProcessedAsync -= handler);
+
+        /// <summary>
+        /// Connecteds the specified client.
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <returns>A Mqtt Client Connected Event Args.</returns>
+        public static IObservable<MqttClientConnectedEventArgs> Connected(this IManagedMqttClient client) =>
+            FromAsyncEvent<MqttClientConnectedEventArgs>(
+                handler => client.ConnectedAsync += handler,
+                handler => client.ConnectedAsync -= handler);
+
+        /// <summary>
+        /// Disconnecteds the specified client.
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <returns>A Mqtt Client Disconnected Event Args.</returns>
+        public static IObservable<MqttClientDisconnectedEventArgs> Disconnected(this IManagedMqttClient client) =>
+            FromAsyncEvent<MqttClientDisconnectedEventArgs>(
+                handler => client.DisconnectedAsync += handler,
+                handler => client.DisconnectedAsync -= handler);
+
+        /// <summary>
+        /// Connectings the failed.
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <returns>A Connecting Failed Event Args.</returns>
+        public static IObservable<ConnectingFailedEventArgs> ConnectingFailed(this IManagedMqttClient client) =>
+            FromAsyncEvent<ConnectingFailedEventArgs>(
+                handler => client.ConnectingFailedAsync += handler,
+                handler => client.ConnectingFailedAsync -= handler);
+
+        /// <summary>
+        /// Synchronizings the subscriptions failed.
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <returns>A Managed Process Failed Event Args.</returns>
+        public static IObservable<ManagedProcessFailedEventArgs> SynchronizingSubscriptionsFailed(this IManagedMqttClient client) =>
+            FromAsyncEvent<ManagedProcessFailedEventArgs>(
+                handler => client.SynchronizingSubscriptionsFailedAsync += handler,
+                handler => client.SynchronizingSubscriptionsFailedAsync -= handler);
+
+        /// <summary>
+        /// Applications the message processed.
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <returns>A Application Message Skipped Event Args.</returns>
+        public static IObservable<ApplicationMessageSkippedEventArgs> ApplicationMessageSkipped(this IManagedMqttClient client) =>
+            FromAsyncEvent<ApplicationMessageSkippedEventArgs>(
+                handler => client.ApplicationMessageSkippedAsync += handler,
+                handler => client.ApplicationMessageSkippedAsync -= handler);
+
+        internal static IObservable<T> FromAsyncEvent<T>(Action<Func<T, Task>> addHandler, Action<Func<T, Task>> removeHandler) =>
+            Observable.Create<T>(observer =>
                 {
                     Task Delegate(T args)
                     {
@@ -235,18 +341,5 @@ namespace MQTTnet.Rx.ManagedClient
                 })
                 .Publish()
                 .RefCount();
-        }
-
-        /// <summary>
-        /// Applications the message processed.
-        /// </summary>
-        /// <param name="client">The client.</param>
-        /// <returns>A Application Message Processed Event Args.</returns>
-        public static IObservable<ApplicationMessageProcessedEventArgs> ApplicationMessageProcessed(this IManagedMqttClient client)
-        {
-            return FromAsyncEvent<ApplicationMessageProcessedEventArgs>(
-                handler => client.ApplicationMessageProcessedAsync += handler,
-                handler => client.ApplicationMessageProcessedAsync -= handler);
-        }
     }
 }

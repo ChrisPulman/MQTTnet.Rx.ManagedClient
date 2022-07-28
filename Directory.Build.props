@@ -10,7 +10,7 @@
     <LangVersion>preview</LangVersion>
     <Configuration>$(TargetFramework)</Configuration>
     <Company>ChrisPulman</Company>
-    <NoWarn>CS1591</NoWarn>
+    <NoWarn>CS1591;IDE0190</NoWarn>
     <Nullable>enable</Nullable>
     <PackageIcon>logo.png</PackageIcon>
     <Configurations>Debug;Release;PreRelease</Configurations>
