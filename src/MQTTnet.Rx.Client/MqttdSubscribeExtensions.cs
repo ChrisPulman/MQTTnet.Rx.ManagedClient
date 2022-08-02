@@ -53,6 +53,124 @@ namespace MQTTnet.Rx.Client
             }).Retry();
 
         /// <summary>
+        /// Discovers the topics.
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <param name="topicExpiry">The topic expiry, topics are removed if they do not publish a value within this time.</param>
+        /// <returns>
+        /// A List of topics.
+        /// </returns>
+        public static IObservable<IEnumerable<(string Topic, DateTime LastSeen)>> DiscoverTopics(this IObservable<IMqttClient> client, TimeSpan? topicExpiry = null) =>
+            Observable.Create<IEnumerable<(string Topic, DateTime LastSeen)>>(observer =>
+                {
+                    if (topicExpiry == null)
+                    {
+                        topicExpiry = TimeSpan.FromHours(1);
+                    }
+
+                    if (topicExpiry.Value.TotalSeconds < 1)
+                    {
+                        throw new ArgumentOutOfRangeException(nameof(topicExpiry), "Topic expiry must be greater or equal to one.");
+                    }
+
+                    var disposable = new CompositeDisposable();
+                    var semaphore = new SemaphoreSlim(1);
+                    disposable.Add(semaphore);
+                    var topics = new List<(string Topic, DateTime LastSeen)>();
+                    var cleanupTopics = false;
+                    var lastCount = -1;
+                    disposable.Add(client.SubscribeToTopic("#").Select(m => m.ApplicationMessage.Topic)
+                        .Merge(Observable.Interval(TimeSpan.FromMinutes(1)).Select(_ => string.Empty)).Subscribe(topic =>
+                    {
+                        semaphore.Wait();
+                        if (string.IsNullOrEmpty(topic))
+                        {
+                            cleanupTopics = true;
+                        }
+                        else if (topics.Select(x => x.Topic).Contains(topic))
+                        {
+                            topics.RemoveAll(x => x.Topic == topic);
+                            topics.Add((topic, DateTime.UtcNow));
+                        }
+                        else
+                        {
+                            topics.Add((topic, DateTime.UtcNow));
+                        }
+
+                        if (cleanupTopics || lastCount != topics.Count)
+                        {
+                            topics.RemoveAll(x => DateTime.UtcNow.Subtract(x.LastSeen) > topicExpiry);
+                            lastCount = topics.Count;
+                            cleanupTopics = false;
+                            observer.OnNext(topics);
+                        }
+
+                        semaphore.Release();
+                    }));
+
+                    return disposable;
+                }).Retry().Publish().RefCount();
+
+        /// <summary>
+        /// Discovers the topics.
+        /// </summary>
+        /// <param name="client">The client.</param>
+        /// <param name="topicExpiry">The topic expiry, topics are removed if they do not publish a value within this time.</param>
+        /// <returns>
+        /// A List of topics.
+        /// </returns>
+        public static IObservable<IEnumerable<(string Topic, DateTime LastSeen)>> DiscoverTopics(this IObservable<IManagedMqttClient> client, TimeSpan? topicExpiry = null) =>
+            Observable.Create<IEnumerable<(string Topic, DateTime LastSeen)>>(observer =>
+                {
+                    if (topicExpiry == null)
+                    {
+                        topicExpiry = TimeSpan.FromHours(1);
+                    }
+
+                    if (topicExpiry.Value.TotalSeconds < 1)
+                    {
+                        throw new ArgumentOutOfRangeException(nameof(topicExpiry), "Topic expiry must be greater or equal to one.");
+                    }
+
+                    var disposable = new CompositeDisposable();
+                    var semaphore = new SemaphoreSlim(1);
+                    disposable.Add(semaphore);
+                    var topics = new List<(string Topic, DateTime LastSeen)>();
+                    var cleanupTopics = false;
+                    var lastCount = -1;
+                    disposable.Add(client.SubscribeToTopic("#").Select(m => m.ApplicationMessage.Topic)
+                        .Merge(Observable.Interval(TimeSpan.FromMinutes(1)).Select(_ => string.Empty)).Subscribe(topic =>
+                    {
+                        semaphore.Wait();
+                        if (string.IsNullOrEmpty(topic))
+                        {
+                            cleanupTopics = true;
+                        }
+                        else if (topics.Select(x => x.Topic).Contains(topic))
+                        {
+                            topics.RemoveAll(x => x.Topic == topic);
+                            topics.Add((topic, DateTime.UtcNow));
+                        }
+                        else
+                        {
+                            topics.Add((topic, DateTime.UtcNow));
+                        }
+
+                        if (cleanupTopics || lastCount != topics.Count)
+                        {
+                            topics.RemoveAll(x => DateTime.UtcNow.Subtract(x.LastSeen) > topicExpiry);
+                            lastCount = topics.Count;
+                            cleanupTopics = false;
+                            observer.OnNext(topics);
+                        }
+
+                        semaphore.Release();
+                    }));
+
+                    return disposable;
+                }).Retry().Publish().RefCount();
+
+        /// <summary>
         /// Subscribes to topic.
         /// </summary>
         /// <param name="client">The client.</param>

@@ -35,6 +35,7 @@ namespace MQTTnet.Rx.Client.TestApp
             var subscribeMenu = new ConsoleMenu(args, level: 1)
                 .Add("Subscribe Client", SubscribeClient)
                 .Add("Subscribe Managed Client", SubscribeManagedClient)
+                .Add("Discover Managed Client", DiscoverTopicsManagedClient)
                 .Add("Close", ConsoleMenu.Close)
                 .Configure(config =>
                 {
@@ -66,7 +67,7 @@ namespace MQTTnet.Rx.Client.TestApp
                          c.WithTcpServer("localhost", 9000)))
              .PublishMessage(_message)
              .Subscribe(r => Console.WriteLine($"{r.ApplicationMessage.Id} [{r.ApplicationMessage.ApplicationMessage.Topic}] value : {r.ApplicationMessage.ApplicationMessage.ConvertPayloadToString()}")));
-            StartMessages();
+            StartMessages("managed/");
             WaitForExit();
         }
 
@@ -75,14 +76,14 @@ namespace MQTTnet.Rx.Client.TestApp
             _disposables.Add(Create.MqttClient()
                 .WithClientOptions(a => a.WithTcpServer("localhost", 9000)).PublishMessage(_message)
                 .Subscribe(r => Console.WriteLine($"{r.ReasonCode} [{r.PacketIdentifier}]")));
-            StartMessages();
+            StartMessages("unmanaged/");
             WaitForExit();
         }
 
         private static void SubscribeClient()
         {
             _disposables.Add(Create.MqttClient().WithClientOptions(a => a.WithTcpServer("localhost", 9000))
-                .SubscribeToTopic("FromMilliseconds")
+                .SubscribeToTopic("#")
                 .Subscribe(r => Console.WriteLine($"{r.ReasonCode} [{r.ApplicationMessage.Topic}] value : {r.ApplicationMessage.ConvertPayloadToString()}")));
             WaitForExit();
         }
@@ -94,14 +95,33 @@ namespace MQTTnet.Rx.Client.TestApp
                  a.WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
                      .WithClientOptions(c =>
                          c.WithTcpServer("localhost", 9000)))
-                .SubscribeToTopic("FromMilliseconds")
+                .SubscribeToTopic("+/FromMilliseconds")
                 .Subscribe(r => Console.WriteLine($"{r.ReasonCode} [{r.ApplicationMessage.Topic}] value : {r.ApplicationMessage.ConvertPayloadToString()}")));
             WaitForExit();
         }
 
-        private static void StartMessages() =>
+        private static void DiscoverTopicsManagedClient()
+        {
+            _disposables.Add(Create.ManagedMqttClient()
+                .WithManagedClientOptions(a =>
+                 a.WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
+                     .WithClientOptions(c =>
+                         c.WithTcpServer("localhost", 9000)))
+                .DiscoverTopics(TimeSpan.FromMinutes(5))
+                .Subscribe(r =>
+                {
+                    Console.Clear();
+                    foreach (var topic in r)
+                    {
+                        Console.WriteLine($"{topic.Topic} Last Seen: {topic.LastSeen}");
+                    }
+                }));
+            WaitForExit();
+        }
+
+        private static void StartMessages(string baseTopic = "") =>
             _disposables.Add(Observable.Interval(TimeSpan.FromMilliseconds(10))
-                    .Subscribe(i => _message.OnNext(("FromMilliseconds", $"payload {i}"))));
+                    .Subscribe(i => _message.OnNext(($"{baseTopic}FromMilliseconds", $"payload {i}"))));
 
         private static void WaitForExit(string? message = null, bool clear = true)
         {
