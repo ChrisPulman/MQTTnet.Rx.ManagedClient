@@ -74,7 +74,8 @@ namespace MQTTnet.Rx.Client.TestApp
         private static void PublishClient()
         {
             _disposables.Add(Create.MqttClient()
-                .WithClientOptions(a => a.WithTcpServer("localhost", 9000)).PublishMessage(_message)
+                .WithClientOptions(a => a.WithTcpServer("localhost", 9000))
+                .PublishMessage(_message)
                 .Subscribe(r => Console.WriteLine($"{r.ReasonCode} [{r.PacketIdentifier}]")));
             StartMessages("unmanaged/");
             WaitForExit();
@@ -83,7 +84,7 @@ namespace MQTTnet.Rx.Client.TestApp
         private static void SubscribeClient()
         {
             _disposables.Add(Create.MqttClient().WithClientOptions(a => a.WithTcpServer("localhost", 9000))
-                .SubscribeToTopic("#")
+                .SubscribeToTopic("unmanaged/FromMilliseconds")
                 .Subscribe(r => Console.WriteLine($"{r.ReasonCode} [{r.ApplicationMessage.Topic}] value : {r.ApplicationMessage.ConvertPayloadToString()}")));
             WaitForExit();
         }
