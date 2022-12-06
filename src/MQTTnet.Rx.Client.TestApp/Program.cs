@@ -85,7 +85,15 @@ namespace MQTTnet.Rx.Client.TestApp
         {
             _disposables.Add(Create.MqttClient().WithClientOptions(a => a.WithTcpServer("localhost", 9000))
                 .SubscribeToTopic("unmanaged/FromMilliseconds")
-                .Subscribe(r => Console.WriteLine($"{r.ReasonCode} [{r.ApplicationMessage.Topic}] value : {r.ApplicationMessage.ConvertPayloadToString()}")));
+                .Do(r => Console.WriteLine($"{r.ReasonCode} [{r.ApplicationMessage.Topic}] value : {r.ApplicationMessage.ConvertPayloadToString()}"))
+                .ToDictionary()
+                .Subscribe(dict =>
+                {
+                    foreach (var item in dict!)
+                    {
+                        Console.WriteLine($"key: {item.Key} value: {item.Value}");
+                    }
+                }));
             WaitForExit();
         }
 
@@ -97,7 +105,15 @@ namespace MQTTnet.Rx.Client.TestApp
                      .WithClientOptions(c =>
                          c.WithTcpServer("localhost", 9000)))
                 .SubscribeToTopic("+/FromMilliseconds")
-                .Subscribe(r => Console.WriteLine($"{r.ReasonCode} [{r.ApplicationMessage.Topic}] value : {r.ApplicationMessage.ConvertPayloadToString()}")));
+                .Do(r => Console.WriteLine($"{r.ReasonCode} [{r.ApplicationMessage.Topic}] value : {r.ApplicationMessage.ConvertPayloadToString()}"))
+                .ToDictionary()
+                .Subscribe(dict =>
+                {
+                    foreach (var item in dict!)
+                    {
+                        Console.WriteLine($"key: {item.Key} value: {item.Value}");
+                    }
+                }));
             WaitForExit();
         }
 
@@ -122,7 +138,7 @@ namespace MQTTnet.Rx.Client.TestApp
 
         private static void StartMessages(string baseTopic = "") =>
             _disposables.Add(Observable.Interval(TimeSpan.FromMilliseconds(10))
-                    .Subscribe(i => _message.OnNext(($"{baseTopic}FromMilliseconds", $"payload {i}"))));
+                    .Subscribe(i => _message.OnNext(($"{baseTopic}FromMilliseconds", "{" + $"payload: {i}" + "}"))));
 
         private static void WaitForExit(string? message = null, bool clear = true)
         {

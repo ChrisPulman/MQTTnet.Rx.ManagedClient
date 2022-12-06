@@ -5,6 +5,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
+using Newtonsoft.Json;
 
 namespace MQTTnet.Rx.Client
 {
@@ -13,6 +14,14 @@ namespace MQTTnet.Rx.Client
     /// </summary>
     public static class MqttdSubscribeExtensions
     {
+        /// <summary>
+        /// Converts to dictionary.
+        /// </summary>
+        /// <param name="message">The message with Json formated key data pairs.</param>
+        /// <returns>A Dictionary of key data pairs.</returns>
+        public static IObservable<Dictionary<string, object>?> ToDictionary(this IObservable<MqttApplicationMessageReceivedEventArgs> message) =>
+            Observable.Create<Dictionary<string, object>?>(observer => message.Retry().Subscribe(m => observer.OnNext(JsonConvert.DeserializeObject<Dictionary<string, object>?>(m.ApplicationMessage.ConvertPayloadToString())))).Retry();
+
         /// <summary>
         /// Subscribes to topic.
         /// </summary>
