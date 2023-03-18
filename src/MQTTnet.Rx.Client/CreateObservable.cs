@@ -4,26 +4,25 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
-namespace MQTTnet.Rx.Client
-{
-    /// <summary>
-    /// Mqtt Extensions.
-    /// </summary>
-    public static class CreateObservable
-    {
-        internal static IObservable<T> FromAsyncEvent<T>(Action<Func<T, Task>> addHandler, Action<Func<T, Task>> removeHandler) =>
-            Observable.Create<T>(observer =>
-                {
-                    Task Delegate(T args)
-                    {
-                        observer.OnNext(args);
-                        return Task.CompletedTask;
-                    }
+namespace MQTTnet.Rx.Client;
 
-                    addHandler(Delegate);
-                    return Disposable.Create(() => removeHandler(Delegate));
-                })
-                .Publish()
-                .RefCount();
-    }
+/// <summary>
+/// Mqtt Extensions.
+/// </summary>
+public static class CreateObservable
+{
+    internal static IObservable<T> FromAsyncEvent<T>(Action<Func<T, Task>> addHandler, Action<Func<T, Task>> removeHandler) =>
+        Observable.Create<T>(observer =>
+            {
+                Task Delegate(T args)
+                {
+                    observer.OnNext(args);
+                    return Task.CompletedTask;
+                }
+
+                addHandler(Delegate);
+                return Disposable.Create(() => removeHandler(Delegate));
+            })
+            .Publish()
+            .RefCount();
 }
