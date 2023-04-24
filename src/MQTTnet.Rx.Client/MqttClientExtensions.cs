@@ -58,6 +58,6 @@ public static class MqttClientExtensions
     /// <returns>A Inspect Mqtt Packet Event Args.</returns>
     public static IObservable<InspectMqttPacketEventArgs> InspectPackage(this IMqttClient client) =>
         CreateObservable.FromAsyncEvent<InspectMqttPacketEventArgs>(
-            handler => client.InspectPackage += handler,
-            handler => client.InspectPackage -= handler);
+            handler => client.InspectPacketAsync += handler,
+            handler => client.InspectPacketAsync -= handler);
 }
