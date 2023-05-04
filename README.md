@@ -1,5 +1,7 @@
 ![License](https://img.shields.io/github/license/ChrisPulman/MQTTnet.Rx.ManagedClient.svg) [![Build](https://github.com/ChrisPulman/MQTTnet.Rx.ManagedClient/actions/workflows/BuildOnly.yml/badge.svg)](https://github.com/ChrisPulman/MQTTnet.Rx.ManagedClient/actions/workflows/BuildOnly.yml) ![Nuget](https://img.shields.io/nuget/dt/MQTTnet.Rx.Client?color=pink&style=plastic) [![NuGet](https://img.shields.io/nuget/v/MQTTnet.Rx.Client.svg?style=plastic)](https://www.nuget.org/packages/MQTTnet.Rx.Client)
 
+![Alt](https://repobeats.axiom.co/api/embed/ce86c8ce3ab110f48d175c1270296e0b35de8b4c.svg "Repobeats analytics image")
+
 <p align="left">
   <a href="https://github.com/ChrisPulman/MQTTnet.Rx.ManagedClient">
     <img alt="MQTTnet.Rx.ManagedClient" src="https://github.com/ChrisPulman/MQTTnet.Rx.ManagedClient/blob/main/Images/logo.png" width="200"/>
