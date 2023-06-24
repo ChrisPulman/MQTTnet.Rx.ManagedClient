@@ -30,7 +30,7 @@ using System.Text.Json.Nodes;
 [GitHubActions(
     "BuildOnly",
     GitHubActionsImage.WindowsLatest,
-    OnPushBranches = new[] { "main" },
+    OnPushBranchesIgnore = new[] { "main" },
     FetchDepth = 0,
     InvokedTargets = new[] { nameof(Compile) })]
 [GitHubActions(
@@ -71,7 +71,7 @@ partial class Build : NukeBuild
         .Before(Restore)
         .Executes(() =>
         {
-            if (!IsLocalBuild)
+            if (IsLocalBuild)
             {
                 return;
             }
@@ -105,21 +105,23 @@ partial class Build : NukeBuild
     .Produces(PackagesDirectory / "*.nupkg")
     .Executes(() =>
     {
-        var packableProjects = GetPackableProjects();
-
-        packableProjects.ForEach(project =>
+        if (Repository.IsOnMainOrMasterBranch())
         {
-            Log.Information("Restoring workloads of {Input}", project);
-            RestoreProjectWorkload(project);
-        });
+            var packableProjects = GetPackableProjects();
 
-        DotNetPack(settings => settings
-            .SetConfiguration(Configuration)
-            .SetVersion(NerdbankVersioning.NuGetPackageVersion)
-            .SetOutputDirectory(PackagesDirectory)
-            .CombineWith(packableProjects, (packSettings, project) =>
-                packSettings.SetProject(project)));
+            packableProjects.ForEach(project =>
+            {
+                Log.Information("Restoring workloads of {Input}", project);
+                RestoreProjectWorkload(project);
+            });
 
+            DotNetPack(settings => settings
+                .SetConfiguration(Configuration)
+                .SetVersion(NerdbankVersioning.NuGetPackageVersion)
+                .SetOutputDirectory(PackagesDirectory)
+                .CombineWith(packableProjects, (packSettings, project) =>
+                    packSettings.SetProject(project)));
+        }
     });
 
     Target Deploy => _ => _
@@ -127,11 +129,14 @@ partial class Build : NukeBuild
     .Requires(() => NuGetApiKey)
     .Executes(() =>
     {
-        DotNetNuGetPush(settings => settings
-                    .SetSource(PublicNuGetSource)
-                    .SetApiKey(NuGetApiKey)
-                    .CombineWith(PackagesDirectory.GlobFiles("*.nupkg").NotEmpty(), (s, v) => s.SetTargetPath(v)),
-                degreeOfParallelism: 5, completeOnFailure: true);
+        if (Repository.IsOnMainOrMasterBranch())
+        {
+            DotNetNuGetPush(settings => settings
+                        .SetSource(PublicNuGetSource)
+                        .SetApiKey(NuGetApiKey)
+                        .CombineWith(PackagesDirectory.GlobFiles("*.nupkg").NotEmpty(), (s, v) => s.SetTargetPath(v)),
+                    degreeOfParallelism: 5, completeOnFailure: true);
+        }
     });
 
     static void UpdateVisualStudio(string version = "Enterprise")
