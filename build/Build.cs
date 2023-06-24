@@ -78,7 +78,7 @@ partial class Build : NukeBuild
 
             PackagesDirectory.CreateOrCleanDirectory();
             UpdateVisualStudio();
-            InstallDotNetSdk("6.6.x", "7.7.x");
+            InstallDotNetSdk("6.x.x", "7.x.x");
         });
 
     Target Restore => _ => _
@@ -102,7 +102,6 @@ partial class Build : NukeBuild
 
     Target Pack => _ => _
     .After(Compile)
-    .Requires(() => Repository.IsOnMainOrMasterBranch())
     .Produces(PackagesDirectory / "*.nupkg")
     .Executes(() =>
     {
@@ -126,7 +125,6 @@ partial class Build : NukeBuild
     Target Deploy => _ => _
     .DependsOn(Pack)
     .Requires(() => NuGetApiKey)
-    .Requires(() => Repository.IsOnMainOrMasterBranch())
     .Executes(() =>
     {
         DotNetNuGetPush(settings => settings
@@ -218,7 +216,7 @@ partial class Build : NukeBuild
         }
 
         StartShell($@"powershell -NoProfile -ExecutionPolicy unrestricted -Command Invoke-WebRequest 'https://dot.net/v1/dotnet-install.ps1' -OutFile 'dotnet-install.ps1';").AssertZeroExitCode();
-        foreach (var version in versionsToInstall.Select(arr => $"{arr[0]}.{arr[1]}.{arr[2]}").ToArray())
+        foreach (var version in versionsToInstall.Select(arr => $"{arr[0]}.{arr[1]}.{arr[2].ToString().First().ToString()}xx").ToArray())
         {
             Console.WriteLine($"Installing .NET SDK {version}");
             StartShell($@"powershell -NoProfile -ExecutionPolicy unrestricted -Command ./dotnet-install.ps1 -Channel '{version}';").AssertZeroExitCode();
