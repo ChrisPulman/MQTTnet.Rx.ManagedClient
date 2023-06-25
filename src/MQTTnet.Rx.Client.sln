@@ -9,37 +9,34 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ProjectConfig", "ProjectCon
 	ProjectSection(SolutionItems) = preProject
 		..\.editorconfig = ..\.editorconfig
 		..\.gitignore = ..\.gitignore
-		..\.github\workflows\BuildOnly.yml = ..\.github\workflows\BuildOnly.yml
 		..\.github\dependabot.yml = ..\.github\dependabot.yml
 		..\Directory.Build.props = ..\Directory.Build.props
-		..\.github\workflows\dotnet.yml = ..\.github\workflows\dotnet.yml
 		..\LICENSE = ..\LICENSE
 		..\README.md = ..\README.md
 		..\stylecop.json = ..\stylecop.json
 		..\Version.json = ..\Version.json
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MQTTnet.Rx.Client.TestApp", "MQTTnet.Rx.Client.TestApp\MQTTnet.Rx.Client.TestApp.csproj", "{E14E94EC-3B68-457A-8B6E-E3D3EEC31364}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MQTTnet.Rx.Client.TestApp", "MQTTnet.Rx.Client.TestApp\MQTTnet.Rx.Client.TestApp.csproj", "{E14E94EC-3B68-457A-8B6E-E3D3EEC31364}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "..\build\_build.csproj", "{F5BA95C1-26FE-4C64-B2A0-B73158C0AA68}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
-		PreRelease|Any CPU = PreRelease|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{51851430-4C4A-4805-B4C4-D85CDB08B375}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{51851430-4C4A-4805-B4C4-D85CDB08B375}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{51851430-4C4A-4805-B4C4-D85CDB08B375}.PreRelease|Any CPU.ActiveCfg = PreRelease|Any CPU
-		{51851430-4C4A-4805-B4C4-D85CDB08B375}.PreRelease|Any CPU.Build.0 = PreRelease|Any CPU
 		{51851430-4C4A-4805-B4C4-D85CDB08B375}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{51851430-4C4A-4805-B4C4-D85CDB08B375}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E14E94EC-3B68-457A-8B6E-E3D3EEC31364}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{E14E94EC-3B68-457A-8B6E-E3D3EEC31364}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E14E94EC-3B68-457A-8B6E-E3D3EEC31364}.PreRelease|Any CPU.ActiveCfg = PreRelease|Any CPU
-		{E14E94EC-3B68-457A-8B6E-E3D3EEC31364}.PreRelease|Any CPU.Build.0 = PreRelease|Any CPU
 		{E14E94EC-3B68-457A-8B6E-E3D3EEC31364}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E14E94EC-3B68-457A-8B6E-E3D3EEC31364}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5BA95C1-26FE-4C64-B2A0-B73158C0AA68}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5BA95C1-26FE-4C64-B2A0-B73158C0AA68}.Release|Any CPU.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
