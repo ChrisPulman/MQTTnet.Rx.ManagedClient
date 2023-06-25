@@ -26,6 +26,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Threading.Tasks;
 
 [GitHubActions(
     "BuildOnly",
@@ -148,83 +149,91 @@ partial class Build : NukeBuild
         StartShell($@"vs where release").AssertZeroExitCode();
     }
 
-    static void InstallDotNetSdk(params string[] versions)
+    static async void InstallDotNetSdk(params string[] versions)
     {
         var versionsToInstall = new List<int[]>();
         var lookupVersions = versions.Select(v => (v, v.Split('.').Select(x =>
         {
             return x == "x" || !int.TryParse(x, out var i) ? default(int?) : i;
         }).ToArray())).ToList();
-        using (var w = new WebClient())
+
+        var json_data = string.Empty;
+        // attempt to download JSON data as a string
+        try
         {
-            var json_data = string.Empty;
-            // attempt to download JSON data as a string
-            try
+            json_data = await GetFileFromUrlAsync("https://raw.githubusercontent.com/dotnet/core/main/release-notes/releases-index.json");
+
+            var releasesArray = JsonNode.Parse(json_data).Root["releases-index"].AsArray();
+
+            // Find the closest version to the one we want to install
+            foreach (var version in lookupVersions)
             {
-                json_data = w.DownloadString("https://raw.githubusercontent.com/dotnet/core/main/release-notes/releases-index.json");
-
-                var releasesArray = JsonNode.Parse(json_data).Root["releases-index"].AsArray();
-
-                // Find the closest version to the one we want to install
-                foreach (var version in lookupVersions)
+                var closestVersion = releasesArray.Where(x =>
                 {
-                    var closestVersion = releasesArray.Where(x =>
-                    {
-                        // check if the version is not a preview version and if the major version matches
-                        var relver = x["latest-sdk"].ToString();
-                        return !relver.Contains("preview") && version.Item2[0].Equals((relver.Split('.').Select(int.Parse).ToArray()[0]));
-                    }).OrderBy(x => Math.Abs(x["latest-sdk"].ToString().CompareTo(version.v))).First();
-                    var ver = closestVersion["latest-sdk"].ToString();
-                    var verSplit = ver.Split('.').Select(int.Parse).ToArray();
+                    // check if the version is not a preview version and if the major version matches
+                    var relver = x["latest-sdk"].ToString();
+                    return !relver.Contains("preview") && version.Item2[0].Equals((relver.Split('.').Select(int.Parse).ToArray()[0]));
+                }).OrderBy(x => Math.Abs(x["latest-sdk"].ToString().CompareTo(version.v))).First();
+                var ver = closestVersion["latest-sdk"].ToString();
+                var verSplit = ver.Split('.').Select(int.Parse).ToArray();
 
-                    // check if the version is already in the list
-                    if (versionsToInstall.Any(x => x[0] == verSplit[0] && x[1] == verSplit[1] && x[2] == verSplit[2]))
-                    {
-                        continue;
-                    }
-
-                    // check if the version is higher than the one we want to install
-                    if (verSplit[1] > version.Item2[1])
-                    {
-                        if (version.Item2[1].HasValue)
-                        {
-                            verSplit[1] = version.Item2[1].Value;
-                        }
-                    }
-
-                    if (verSplit[2] > version.Item2[2])
-                    {
-                        if (version.Item2[2].HasValue)
-                        {
-                            verSplit[2] = version.Item2[2].Value;
-                        }
-                        else
-                        {
-                            // TODO: if the minor version is not specified, then we want the latest.T
-                            // The output must be a string, must be three digits, and must be padded with xx if not three digits
-                        }
-                    }
-
-                    versionsToInstall.Add(verSplit);
+                // check if the version is already in the list
+                if (versionsToInstall.Any(x => x[0] == verSplit[0] && x[1] == verSplit[1] && x[2] == verSplit[2]))
+                {
+                    continue;
                 }
 
-                // if versionsToInstall is empty, then we didn't find any versions to install
-                if (versionsToInstall.Count == 0)
+                // check if the version is higher than the one we want to install
+                if (verSplit[1] > version.Item2[1])
                 {
-                    Log.Information("No matching versions found to install");
+                    if (version.Item2[1].HasValue)
+                    {
+                        verSplit[1] = version.Item2[1].Value;
+                    }
                 }
+
+                if (verSplit[2] > version.Item2[2])
+                {
+                    if (version.Item2[2].HasValue)
+                    {
+                        verSplit[2] = version.Item2[2].Value;
+                    }
+                    else
+                    {
+                        // TODO: if the minor version is not specified, then we want the latest.T
+                        // The output must be a string, must be three digits, and must be padded with xx if not three digits
+                    }
+                }
+
+                versionsToInstall.Add(verSplit);
             }
-            catch (Exception ex)
+
+            // if versionsToInstall is empty, then we didn't find any versions to install
+            if (versionsToInstall.Count == 0)
             {
-                Log.Information("Error downloading JSON data: {Value}", ex.Message);
+                Log.Information("No matching versions found to install");
             }
         }
+        catch (Exception ex)
+        {
+            Log.Information("Error downloading JSON data: {Value}", ex.Message);
+        }
+
 
         StartShell($@"powershell -NoProfile -ExecutionPolicy unrestricted -Command Invoke-WebRequest 'https://dot.net/v1/dotnet-install.ps1' -OutFile 'dotnet-install.ps1';").AssertZeroExitCode();
         foreach (var version in versionsToInstall.Select(arr => $"{arr[0]}.{arr[1]}.{arr[2].ToString().First().ToString()}xx").ToArray())
         {
             Console.WriteLine($"Installing .NET SDK {version}");
             StartShell($@"powershell -NoProfile -ExecutionPolicy unrestricted -Command ./dotnet-install.ps1 -Channel '{version}';").AssertZeroExitCode();
+        }
+    }
+
+    static async Task<string> GetFileFromUrlAsync(string url)
+    {
+        using (var httpClient = new HttpClient())
+        {
+            var response = await httpClient.GetAsync(url);
+            return await response.Content.ReadAsStringAsync();
         }
     }
 
