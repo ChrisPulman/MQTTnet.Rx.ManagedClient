@@ -88,11 +88,11 @@ partial class Build : NukeBuild
         {
             var packableProjects = Solution.GetPackableProjects();
 
-            packableProjects?.ForEach(project =>
-            {
-                Log.Information("Restoring workloads of {Input}", project);
-                project.RestoreProjectWorkload();
-            });
+            ////packableProjects?.ForEach(project =>
+            ////{
+            ////    Log.Information("Restoring workloads of {Input}", project);
+            ////    project.RestoreProjectWorkload();
+            ////});
 
             DotNetPack(settings => settings
                 .SetConfiguration(Configuration)
