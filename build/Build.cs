@@ -37,7 +37,7 @@ using System.Threading.Tasks;
 [GitHubActions(
     "BuildDeploy",
     GitHubActionsImage.WindowsLatest,
-    OnPullRequestBranches = new[] { "main" },
+    OnPushBranches = new[] { "main" },
     FetchDepth = 0,
     ImportSecrets = new[] { nameof(NuGetApiKey) },
     InvokedTargets = new[] { nameof(Compile), nameof(Deploy) })]
