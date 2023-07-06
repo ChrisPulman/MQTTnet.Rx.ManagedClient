@@ -92,7 +92,6 @@ partial class Build : NukeBuild
                 .SetConfiguration(Configuration)
                 .SetVersion(NerdbankVersioning.NuGetPackageVersion)
                 .SetOutputDirectory(PackagesDirectory)
-                .SetIgnoreFailedSources(true)
                 .CombineWith(packableProjects, (packSettings, project) =>
                     packSettings.SetProject(project)));
         }
@@ -107,6 +106,7 @@ partial class Build : NukeBuild
         {
             DotNetNuGetPush(settings => settings
                         .SetSource(this.PublicNuGetSource())
+                        .SetSkipDuplicate(true)
                         .SetApiKey(NuGetApiKey)
                         .CombineWith(PackagesDirectory.GlobFiles("*.nupkg"), (s, v) => s.SetTargetPath(v)),
                     degreeOfParallelism: 5, completeOnFailure: true);
