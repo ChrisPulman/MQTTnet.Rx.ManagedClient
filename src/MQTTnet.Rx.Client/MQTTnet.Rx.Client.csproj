@@ -10,6 +10,7 @@
     <PackageReference Include="MQTTnet.Extensions.ManagedClient" Version="4.2.1.781" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Reactive" Version="6.0.0" />
+    <PackageDownload Include="nbgv" Version="[3.6.133]" />
   </ItemGroup>
 
 </Project>
