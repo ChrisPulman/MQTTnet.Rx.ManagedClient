@@ -13,7 +13,7 @@
     <Nullable>enable</Nullable>
     <PackageIcon>logo.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>Compatability with Net 6 and netstandard2.0</PackageReleaseNotes>
+    <PackageReleaseNotes>Compatability with Net 6 / 7 and netstandard2.0</PackageReleaseNotes>
     <PackageTags>MQTT;MQTTnet;Managed;Client;rx;reactive;extensions;observable;LINQ;net;netstandard</PackageTags>
     <EnableNETAnalyzers>True</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
